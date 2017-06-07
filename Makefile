@@ -54,7 +54,7 @@ CXX := g++
 CXXFLAGS := -fno-rtti -O0 -g
 PLUGIN_CXXFLAGS := -fpic
 
-LLVM_CXXFLAGS := `$(LLVM_BIN_PATH)/llvm-config --cxxflags`
+LLVM_CXXFLAGS := `$(LLVM_BIN_PATH)/llvm-config --cxxflags | sed 's/-Wno-maybe-uninitialized//'`
 LLVM_LDFLAGS := `$(LLVM_BIN_PATH)/llvm-config --ldflags --libs --system-libs`
 
 # Plugins shouldn't link LLVM and Clang libs statically, because they are

@@ -15,7 +15,8 @@
 set -eu
 set -x
 
-BINARY_DIR_PATH=$HOME/llvm/llvm3.8-binaries
+#BINARY_DIR_PATH=$HOME/llvm/llvm3.8-binaries
+BINARY_DIR_PATH=/usr/lib/llvm-3.8
 
 make -j4 \
   CXX=$BINARY_DIR_PATH/bin/clang++ \
@@ -23,4 +24,12 @@ make -j4 \
   LLVM_BUILD_PATH=$BINARY_DIR_PATH/bin \
   LLVM_BIN_PATH=$BINARY_DIR_PATH/bin
 
-make LLVM_BIN_PATH=$BINARY_DIR_PATH/bin test
+# default to test target
+[ -z "$*" ] && unshift test
+
+make \
+  CXX=$BINARY_DIR_PATH/bin/clang++ \
+  LLVM_SRC_PATH=$BINARY_DIR_PATH \
+  LLVM_BUILD_PATH=$BINARY_DIR_PATH/bin \
+  LLVM_BIN_PATH=$BINARY_DIR_PATH/bin \
+  "$@"
