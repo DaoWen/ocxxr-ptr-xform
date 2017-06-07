@@ -214,6 +214,14 @@ $(BUILDDIR)/try_matcher: $(SRC_CLANG_DIR)/experimental/try_matcher.cpp
 	$(CXX) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANG_INCLUDES) $^ \
 		$(CLANG_LIBS) $(LLVM_LDFLAGS) -o $@
 
+.PHONY: ocxxr_tools
+ocxxr_tools: make_builddir \
+	$(BUILDDIR)/taskbuilder_matcher
+
+$(BUILDDIR)/taskbuilder_matcher: $(SRC_CLANG_DIR)/ocxxr/taskbuilder_matcher.cpp
+	$(CXX) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANG_INCLUDES) $^ \
+		$(CLANG_LIBS) $(LLVM_LDFLAGS) -o $@
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/* *.dot test/*.pyc test/__pycache__
