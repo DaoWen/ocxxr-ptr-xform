@@ -56,11 +56,14 @@ static bool StringStartsWith(const std::string &str, const std::string &prefix) 
 }
 
 static const std::string ocxxr_db_prefix = "class ocxxr::Datablock<";
+static const std::string ocxxr_arena_prefix = "class ocxxr::Arena<";
 
 static bool IsDatablockType(const QualType &type) {
-    if (!type->isClassType()) return false;
-    const QualType &raw_type = type->getCanonicalTypeUnqualified();
-    return StringStartsWith(raw_type.getAsString(), ocxxr_db_prefix);
+  if (!type->isClassType()) return false;
+  const QualType &raw_type = type->getCanonicalTypeUnqualified();
+  const std::string &raw_type_str = raw_type.getAsString();
+  return StringStartsWith(raw_type_str, ocxxr_db_prefix)
+    || StringStartsWith(raw_type_str, ocxxr_arena_prefix);
 }
 
 static QualType UnpackDbType(const QualType &db_type) {
@@ -72,6 +75,42 @@ static QualType UnpackDbType(const QualType &db_type) {
   return template_args[0].getAsType();
 }
 
+bool ContainsPointerType(const QualType &t) {
+  const QualType &raw_type = t->getCanonicalTypeUnqualified();
+  if (raw_type->isSpecifierType())
+    return false;
+  else if (/*const PointerType *x =*/ raw_type->getAs<PointerType>())
+    return true;
+  else if (const ArrayType *x = dyn_cast<ArrayType>(raw_type))
+    return ContainsPointerType(x->getElementType());
+  else if (/*const ReferenceType *x =*/ raw_type->getAs<ReferenceType>())
+    return true;
+  else if (const AutoType *x = raw_type->getAs<AutoType>())
+    return ContainsPointerType(x->getDeducedType());
+  else
+    return false;
+}
+
+bool ParamContainsPointerType(const QualType &t) {
+  const QualType &raw_type = t->getCanonicalTypeUnqualified();
+  // Allow top-level reference for paramv entries
+  if (const ReferenceType *x = raw_type->getAs<ReferenceType>())
+    return ContainsPointerType(x->getPointeeType());
+  else
+    return ContainsPointerType(raw_type);
+}
+
+static const char *OK_STR = "[OK]";
+static const char *BAD_STR = "[BAD]";
+
+static inline const char *StrOkBad(bool isOK) {
+  return isOK ? OK_STR : BAD_STR;
+}
+
+// FIXME - for some reason, QualType::GetBaseType considers function return types
+// to be a "base type", which means this won't handle function pointers correctly.
+// (Might need to rewrite this functionality to get the correct behavior.)
+
 static void FindPersistedClassTypes(llvm::raw_ostream &out, const ClassTemplateSpecializationDecl &d) {
   auto &template_args = d.getTemplateArgs();
   ASSERT(template_args.size() > 0);
@@ -82,14 +121,19 @@ static void FindPersistedClassTypes(llvm::raw_ostream &out, const ClassTemplateS
   for (size_t i=0; i<args_count; i++) {
     const QualType &type = fn_type.getParamType(i);
     const bool is_db = IsDatablockType(type);
-    if (is_db) {
-      //QualType.getBaseTypeIdentifier
-      //Type.canDecayToPointerType
+    //Type.canDecayToPointerType
+    if (is_db) { // db-dependence input type
       const QualType inner_type = UnpackDbType(type);
-      out << "    DB: " << inner_type.getAsString() << "\n";
+      const bool needs_transform = ContainsPointerType(inner_type);
+      out << "    Datablock: " << inner_type.getAsString();
+      out << " " << StrOkBad(!needs_transform);
+      out << "\n";
     }
-    else {
-      out << "    " << type.getAsString() << "\n";
+    else { // paramv input type
+      const bool needs_transform = ParamContainsPointerType(type);
+      out << "    Parameter: " << type.getAsString();
+      out << " " << StrOkBad(!needs_transform);
+      out << "\n";
     }
   }
 }
